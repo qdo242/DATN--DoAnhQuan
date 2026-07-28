@@ -1,3 +1,18 @@
+"""
+BENCHMARK_CRYPTO.PY - So Sanh Hieu Nang AES vs XOR
+=====================================================
+So sanh toc do ma hoa/giai ma AES-128-CBC vs XOR voi du lieu JSON thuc tu Wokwi.
+
+Chuc nang:
+  1. Doc du lieu benchmark tu SQLite (AES tu Wokwi/Server)
+  2. Tao JSON payload tuong tu Wokwi
+  3. Do thoi gian ma hoa/giai ma AES va XOR
+  4. Ve bieu do so sanh
+  5. Luu vao docs/images/benchmark_crypto.png
+
+Chay: python benchmark_crypto.py
+"""
+
 import time
 import statistics
 import json
@@ -7,15 +22,26 @@ import random
 from Cryptodome.Cipher import AES
 from xor_cipher import xor_encrypt, xor_decrypt, NETWORK_KEY as XOR_KEY
 
-AES_KEY = b'key_x_1234567890'
-ITERATIONS = 2000
+# ============================================================
+# CAU HINH
+# ============================================================
+AES_KEY = b'key_x_1234567890'  # Key ma hoa AES (16 byte)
+ITERATIONS = 2000  # So lan lap moi phep do
 
-# ===== DOC DU LIEU TU DATABASE (AES tu Wokwi/Server) =====
+# ============================================================
+# PHAN 1: DOC DU LIEU TU DATABASE
+# ============================================================
+# Doc du lieu benchmark tu Wokwi/Server (AES thuc te)
 db_path = os.path.join(os.path.dirname(__file__), '..', 'iot_security.db')
 if os.path.exists(db_path):
     conn = sqlite3.connect(db_path)
-    rows = conn.execute("SELECT id, device_id, decrypt_ms, seq_ms, log_ms, total_ms, status FROM benchmark ORDER BY id").fetchall()
+    rows = conn.execute(
+        "SELECT id, device_id, decrypt_ms, seq_ms, log_ms, total_ms, status "
+        "FROM benchmark ORDER BY id"
+    ).fetchall()
     conn.close()
+
+    # Hien thi bang du lieu benchmark
     print("=" * 70)
     print("  DU LIEU TU DATABASE (AES tu Wokwi/Server)")
     print("=" * 70)
@@ -23,20 +49,32 @@ if os.path.exists(db_path):
     print("-" * 62)
     for r in rows:
         print(f"{r[0]:<4} {r[1]:<10} {r[2]:<10.3f} {r[3]:<10.3f} {r[4]:<10.3f} {r[5]:<10.3f} {r[6]:<8}")
+
+    # Tinh gia tri trung binh
     if rows:
-        avg_d = statistics.mean([r[2] for r in rows])
-        avg_s = statistics.mean([r[3] for r in rows])
-        avg_l = statistics.mean([r[4] for r in rows])
-        avg_t = statistics.mean([r[5] for r in rows])
-        ok = sum(1 for r in rows if r[6] == 'OK')
-        fail = sum(1 for r in rows if r[6] == 'FAIL')
+        avg_d = statistics.mean([r[2] for r in rows])  # Decrypt trung binh
+        avg_s = statistics.mean([r[3] for r in rows])  # Seq check trung binh
+        avg_l = statistics.mean([r[4] for r in rows])  # Log trung binh
+        avg_t = statistics.mean([r[5] for r in rows])  # Total trung binh
+        ok = sum(1 for r in rows if r[6] == 'OK')      # So luong thanh cong
+        fail = sum(1 for r in rows if r[6] == 'FAIL')   # So luong replay bi chan
         print(f"\nTrung binh: Decrypt={avg_d:.3f}ms Seq={avg_s:.3f}ms Log={avg_l:.3f}ms Total={avg_t:.3f}ms")
         print(f"Thanh cong: {ok} | Replay bi chan: {fail}")
     print()
 
-# ===== TAO DU LIEU JSON TUONG TU WOKWI =====
+# ============================================================
+# PHAN 2: TAO DU LIEU JSON TUONG TU WOKWI
+# ============================================================
 def make_wokwi_payload(seq):
-    """Tao JSON payload giong nhu Wokwi gui"""
+    """
+    Tao JSON payload giong nhu Wokwi gui.
+
+    Args:
+        seq: So sequence number
+
+    Returns:
+        dict: Du lieu JSON voi 13 truong (id, t, h, p, co2, co, nh3, lat, lon, alt, sats, gw, seq)
+    """
     return {
         "id": f"Xi_{random.randint(1,2):02d}",
         "t": round(random.uniform(25, 31), 1),
@@ -60,6 +98,7 @@ for i, seq in enumerate([1001, 1050, 1100, 1500, 2000]):
     json_str = json.dumps(data, ensure_ascii=False, separators=(',', ':'))
     sample_payloads.append((len(json_str), json_str.encode('utf-8')))
 
+# Hien thi mau JSON
 print("=" * 70)
 print("  MAU JSON TUONG TU WOKWI")
 print("=" * 70)
@@ -67,8 +106,20 @@ for size, payload in sample_payloads:
     print(f"  {size:3d}B: {payload[:80].decode('utf-8')}...")
 print()
 
+# ============================================================
+# PHAN 3: CAC HAM MA HOA/GIAI MA
+# ============================================================
 def aes_encrypt(data: bytes) -> bytes:
-    iv = os.urandom(16)
+    """
+    Ma hoa AES-128-CBC.
+
+    Args:
+        data: Du lieu tho (bytes)
+
+    Returns:
+        bytes: IV (16 byte) + ciphertext
+    """
+    iv = os.urandom(16)  # IV ngau nhien 16 byte
     padded_len = ((len(data) + 15) // 16) * 16
     pad = data.ljust(padded_len, b'\0')
     cipher = AES.new(AES_KEY, AES.MODE_CBC, iv=iv)
@@ -76,44 +127,72 @@ def aes_encrypt(data: bytes) -> bytes:
     return iv + ct
 
 def aes_decrypt(packet: bytes) -> bytes:
+    """
+    Giai ma AES-128-CBC.
+
+    Args:
+        packet: IV (16 byte) + ciphertext
+
+    Returns:
+        bytes: Du lieu goc
+    """
     iv = packet[:16]
     ct = packet[16:]
     cipher = AES.new(AES_KEY, AES.MODE_CBC, iv=iv)
     return cipher.decrypt(ct).rstrip(b'\0')
 
 def xor_encrypt_wrapper(data: bytes) -> bytes:
+    """Goi ham XOR encrypt tu xor_cipher.py"""
     return xor_encrypt(data)
 
 def xor_decrypt_wrapper(data: bytes) -> bytes:
+    """Goi ham XOR decrypt tu xor_cipher.py"""
     return xor_decrypt(data)
 
 def bench(func, data, iters=ITERATIONS):
+    """
+    Do thoi gian thuc thi cua 1 ham.
+
+    Args:
+        func: Ham can do
+        data: Du lieu dau vao
+        iters: So lan lap
+
+    Returns:
+        tuple: (mean_us, std_us, min_us, max_us) - microseconds
+    """
     times = []
     for _ in range(iters):
         t0 = time.perf_counter()
         func(data)
         t1 = time.perf_counter()
-        times.append((t1 - t0) * 1_000_000)
+        times.append((t1 - t0) * 1_000_000)  # Chuyen sang microseconds
     return statistics.mean(times), statistics.stdev(times), min(times), max(times)
 
-# ===== BENCHMARK VOI DU LIEU JSON TUONG TU WOKWI =====
+# ============================================================
+# PHAN 4: BENCHMARK VOI DU LIEU JSON TUONG TU WOKWI
+# ============================================================
 results = []
 print("=" * 70)
 print("  BENCHMARK: AES vs XOR voi du lieu JSON tuong tu Wokwi")
 print("=" * 70)
 
 for size, pt in sample_payloads:
+    # Ma hoa tin nhan
     ct_aes = aes_encrypt(pt)
     ct_xor = xor_encrypt_wrapper(pt)
 
+    # Do thoi gian ma hoa/giai ma
     mean_e, std_e, min_e, max_e = bench(aes_encrypt, pt)
     mean_d, std_d, min_d, max_d = bench(aes_decrypt, ct_aes)
     mean_xe, std_xe, min_xe, max_xe = bench(xor_encrypt_wrapper, pt)
     mean_xd, std_xd, min_xd, max_xd = bench(xor_decrypt_wrapper, ct_xor)
 
+    # Luu ket qua
     results.append((size, mean_e, std_e, mean_d, std_d, mean_xe, std_xe, mean_xd, std_xd))
     print(f"Payload {size:3d}B: AES enc={mean_e:8.2f}us dec={mean_d:8.2f}us | XOR enc={mean_xe:8.2f}us dec={mean_xd:8.2f}us")
 
+# Hien thi bang so sanh chi tiet
 print("\n=== BANG SO SANH CHI TIET ===")
 header = f"{'Size':>6} | {'AES Enc(us)':>12} {'AES Dec(us)':>12} {'XOR Enc(us)':>12} {'XOR Dec(us)':>12} | {'Ty le AES/XOR':>14}"
 print(header)
@@ -122,11 +201,15 @@ for size, me, se, md, sd, mxe, sxe, mxd, sxd in results:
     ratio = (me + md) / (mxe + mxd)
     print(f"{size:>6} | {me:>10.2f}us {md:>10.2f}us {mxe:>10.2f}us {mxd:>10.2f}us | {ratio:>12.1f}x")
 
+# ============================================================
+# PHAN 5: VE BIEU DO
+# ============================================================
 import matplotlib
-matplotlib.use('Agg')
+matplotlib.use('Agg')  # Khong can display
 import matplotlib.pyplot as plt
 import numpy as np
 
+# Tao figure voi 2 bieu do
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
 sizes_arr = np.array([r[0] for r in results])
 aes_enc = np.array([r[1] for r in results])
@@ -135,8 +218,9 @@ xor_enc = np.array([r[5] for r in results])
 xor_dec = np.array([r[7] for r in results])
 
 x = np.arange(len(sizes_arr))
-w = 0.2
+w = 0.2  # Chieu rong cot
 
+# Bieu do 1: So sanh chi tiet
 ax1.bar(x - 1.5*w, aes_enc, w, label='AES Encrypt', color='#e74c3c')
 ax1.bar(x - 0.5*w, aes_dec, w, label='AES Decrypt', color='#c0392b')
 ax1.bar(x + 0.5*w, xor_enc, w, label='XOR Encrypt', color='#2ecc71')
@@ -148,6 +232,7 @@ ax1.set_title('So sanh toc do AES vs XOR (du lieu JSON Wokwi)')
 ax1.legend()
 ax1.grid(axis='y', alpha=0.3)
 
+# Bieu do 2: So sanh tong thoi gian
 ax2.bar(x - 1.5*w, aes_enc + aes_dec, w, label='AES (Enc+Dec)', color='#e74c3c')
 ax2.bar(x + 0.5*w, xor_enc + xor_dec, w, label='XOR (Enc+Dec)', color='#2ecc71')
 ax2.set_xticks(x)
@@ -157,6 +242,7 @@ ax2.set_title('So sanh tong thoi gian xu ly')
 ax2.legend()
 ax2.grid(axis='y', alpha=0.3)
 
+# Luu bieu do
 plt.tight_layout()
 out_path = os.path.join(os.path.dirname(__file__), '..', 'docs', 'images', 'benchmark_crypto.png')
 os.makedirs(os.path.dirname(out_path), exist_ok=True)
@@ -164,7 +250,9 @@ plt.savefig(out_path, dpi=150)
 print(f"\nDa luu bieu do: {os.path.basename(out_path)}")
 plt.close()
 
-# ===== SO SANH CUOI CUNG: AES tu DB vs XOR mo phong =====
+# ============================================================
+# PHAN 6: SO SANH CUOI CUNG (AES tu DB vs XOR mo phong)
+# ============================================================
 print("\n" + "=" * 70)
 print("  SO SANH: AES-128-CBC (du lieu thuc tu Server) vs XOR (mo phong)")
 print("=" * 70)
@@ -179,6 +267,7 @@ if rows:
 else:
     aes_server_total = None
 
+# Bang so sanh cuoi cung
 print(f"\n{'Size':<8} {'AES(us)':<12} {'XOR(us)':<12} {'Ty le':<10}")
 print("-" * 42)
 for size, me, se, md, sd, mxe, sxe, mxd, sxd in results:

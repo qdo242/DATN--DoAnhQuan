@@ -1,14 +1,16 @@
 """
-Thử nghiệm chống tấn công phát lại (Replay Attack)
+TEST_REPLAY.PY - Thu Nghiem Chong Tan Cong Phat Lai
+=====================================================
+Script tu dong:
+  1. Khoi tao database sach
+  2. Mo phong server Flask bang test client
+  3. Gui goi tin hop le -> kiem tra HTTP 200
+  4. Gui lai goi tin cu (replay) -> kiem tra HTTP 403
+  5. Gui goi tin voi seq cu -> kiem tra HTTP 403
+  6. Gui goi tin voi seq moi -> kiem tra HTTP 200
+  7. Hien thi bang ket qua benchmark
 
-Script này tự động:
-  1. Khởi tạo database sạch
-  2. Mô phỏng server Flask bằng test client
-  3. Gửi gói tin hợp lệ -> kiểm tra HTTP 200
-  4. Gửi lại gói tin cũ (replay) -> kiểm tra HTTP 403
-  5. Gửi gói tin với seq cũ -> kiểm tra HTTP 403
-  6. Gửi gói tin với seq mới -> kiểm tra HTTP 200
-  7. Hiển thị bảng kết quả benchmark
+Chay: python test_replay.py
 """
 
 import sys, os, json, time, io
@@ -22,9 +24,21 @@ from app import app
 import init_db
 import sqlite3
 
+# ============================================================
+# CAU HINH
+# ============================================================
 AES_KEY = b'key_x_1234567890'
 
 def aes_encrypt(data: bytes) -> bytes:
+    """
+    Ma hoa du lieu bang AES-128-CBC.
+
+    Quy trinh:
+      1. Tao IV ngau nhien 16 byte
+      2. Padding duoi (\\0) cho du 16 byte
+      3. Ma hoa AES-CBC
+      4. Tra ve: IV + ciphertext
+    """
     iv = os.urandom(16)
     padded_len = ((len(data) + 15) // 16) * 16
     pad = data.ljust(padded_len, b'\0')
@@ -33,6 +47,16 @@ def aes_encrypt(data: bytes) -> bytes:
     return iv + ct
 
 def make_payload(device_id, seq):
+    """
+    Tao goi tin JSON ma hoa AES.
+
+    Args:
+        device_id: Ma thiet bi (vi du: "Xi_01")
+        seq: Sequence number
+
+    Returns:
+        str: Hex string cua IV + ciphertext
+    """
     data = {
         "id": device_id,
         "t": 28.5, "h": 65.2, "p": 1008.0,
@@ -47,40 +71,47 @@ def make_payload(device_id, seq):
     return ct.hex()
 
 print("=" * 65)
-print("  THỬ NGHIỆM CHỐNG TẤN CÔNG PHÁT LẠI (REPLAY ATTACK)")
+print("  THU NGHIEM CHONG TAN CONG PHAT LAI (REPLAY ATTACK)")
 print("=" * 65)
 
-# Khởi tạo database sạch
+# ============================================================
+# KHOI TAO DATABASE SACH
+# ============================================================
 db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'iot_security.db')
 if os.path.exists(db_path):
     os.remove(db_path)
-    print("\n[*] Đã xóa database cũ")
+    print("\n[*] Da xoa database cu")
 
 init_db.init_db()
-print("[*] Đã khởi tạo database mới")
+print("[*] Da khoi tao database moi")
 
-# Dùng Flask test client (không cần chạy server thật)
+# ============================================================
+# CAC TEST CASE
+# ============================================================
+# Dung Flask test client (khong can chay server that)
 client = app.test_client()
 device = "Xi_01"
 
 results = []
 test_cases = [
-    ("Gửi gói tin hợp lệ (seq=100)", 100, 200, "Gói tin hợp lệ"),
-    ("Gửi LẠI gói tin cũ (seq=100)", 100, 403, "Phát hiện replay!"),
-    ("Gửi gói tin với seq cũ hơn (seq=50)", 50, 403, "Seq cũ hơn -> chặn replay"),
-    ("Gửi gói tin hợp lệ mới (seq=101)", 101, 200, "Gói tin hợp lệ"),
-    ("Gửi gói tin với seq bằng hiện tại (seq=101)", 101, 403, "Seq trùng -> phát hiện replay"),
-    ("Gửi gói tin hợp lệ mới (seq=200)", 200, 200, "Gói tin hợp lệ"),
-    ("Thử replay ngay sau đó (seq=200)", 200, 403, "Phát hiện replay!"),
+    # (Ten test, seq, HTTP code mong doi, mo ta)
+    ("Gui goi tin hop le (seq=100)", 100, 200, "Goi tin hop le"),
+    ("Gui LAI goi tin cu (seq=100)", 100, 403, "Phat hien replay!"),
+    ("Gui goi tin voi seq cu hon (seq=50)", 50, 403, "Seq cu hon -> chan replay"),
+    ("Gui goi tin hop le moi (seq=101)", 101, 200, "Goi tin hop le"),
+    ("Gui goi tin voi seq bang hien tai (seq=101)", 101, 403, "Seq trung -> phat hien replay"),
+    ("Gui goi tin hop le moi (seq=200)", 200, 200, "Goi tin hop le"),
+    ("Thu replay ngay sau do (seq=200)", 200, 403, "Phat hien replay!"),
 ]
 
 print(f"\n{'='*65}")
-print(f"  KẾT QUẢ THỬ NGHIỆM TRÊN THIẾT BỊ: {device}")
+print(f"  KET QUA THU NGHIEM TREN THIET BI: {device}")
 print(f"{'='*65}")
-print(f"{'STT':<4} {'Test case':<45} {'Kỳ vọng':<10} {'Thực tế':<10} {'Kết luận':<12}")
+print(f"{'STT':<4} {'Test case':<45} {'Ky vong':<10} {'Thuc te':<10} {'Ket luan':<12}")
 print("-" * 81)
 
 for i, (name, seq, expected, desc) in enumerate(test_cases, 1):
+    # Tao payload va gui len server
     payload_hex = make_payload(device, seq)
     t0 = time.perf_counter()
     resp = client.post('/receive-data', json={"payload": payload_hex})
@@ -88,6 +119,7 @@ for i, (name, seq, expected, desc) in enumerate(test_cases, 1):
     actual = resp.status_code
     status = resp.get_json() or {}
 
+    # Kiem tra ket qua
     passed = actual == expected
     verdict = "PASS" if passed else "FAIL"
     results.append((name, seq, expected, actual, verdict, elapsed, status, desc))
@@ -95,16 +127,18 @@ for i, (name, seq, expected, desc) in enumerate(test_cases, 1):
     print(f"{i:<4} {name:<45} {expected:<10} {actual:<10} {verdict:<12}")
     if not passed:
         reason = status.get('reason', 'N/A')
-        print(f"     -> LỖI: Expected {expected}, got {actual}. Reason: {reason}")
+        print(f"     -> LOI: Expected {expected}, got {actual}. Reason: {reason}")
 
 print("-" * 81)
 total_pass = sum(1 for r in results if r[4] == "PASS")
 total_fail = sum(1 for r in results if r[4] == "FAIL")
-print(f"\n  Tổng kết: {len(results)} test case — {total_pass} PASS, {total_fail} FAIL")
+print(f"\n  Tong ket: {len(results)} test case -- {total_pass} PASS, {total_fail} FAIL")
 
-# Hiển thị bảng benchmark từ database
+# ============================================================
+# HIEN THI BANG BENCHMARK TU DATABASE
+# ============================================================
 print(f"\n{'='*65}")
-print(f"  DỮ LIỆU BENCHMARK TỪ DATABASE")
+print(f"  DU LIEU BENCHMARK TU DATABASE")
 print(f"{'='*65}")
 conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
@@ -119,17 +153,17 @@ if rows:
     for row in rows:
         print(f"{row[0]:<4} {row[1]:<10} {row[2]:<12.3f} {row[3]:<10.3f} {row[4]:<10.3f} {row[5]:<10.3f} {row[6]:<10} {row[7]}")
 else:
-    print("  (không có dữ liệu)")
+    print("  (khong co du lieu)")
 
-# Đếm số lần replay bị chặn
+# Dem so lan replay bi chan
 replay_count = sum(1 for r in rows if r[6] == "FAIL") if rows else 0
-print(f"\n  Số lần replay bị chặn: {replay_count}/{len(rows) if rows else 0} request")
-print(f"  Bảo vệ replay: {'HOẠT ĐỘNG' if replay_count > 0 else 'KHÔNG CÓ DỮ LIỆU'}")
+print(f"\n  So lan replay bi chan: {replay_count}/{len(rows) if rows else 0} request")
+print(f"  Bao ve replay: {'HOAT DONG' if replay_count > 0 else 'KHONG CO DU LIEU'}")
 
 conn.close()
 print(f"\n{'='*65}")
-print(f"  KẾT LUẬN: Hệ thống chống tấn công phát lại hoạt động đúng.")
-print(f"  Gói tin cũ bị từ chối với HTTP 403.")
-print(f"  Sequence number được mã hóa trong payload AES-CBC,")
-print(f"  kẻ tấn công không thể sửa seq nếu không có key.")
+print(f"  KET LUAN: He thong chong tan cong phat lai hoat dong dung.")
+print(f"  Goi tin cu bi tu choi voi HTTP 403.")
+print(f"  Sequence number duoc ma hoa trong payload AES-CBC,")
+print(f"  ke tan cong khong the sua seq neu khong co key.")
 print(f"{'='*65}")
