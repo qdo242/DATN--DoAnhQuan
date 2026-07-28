@@ -1,0 +1,23 @@
+{
+  "skill_name": "troubleshoot",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "module not found",
+      "expected_output": "pip install required packages",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "server khong chay duoc",
+      "expected_output": "Check port, dependencies, database",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "database locked",
+      "expected_output": "Delete and reinitialize iot_security.db",
+      "files": []
+    }
+  ]
+}

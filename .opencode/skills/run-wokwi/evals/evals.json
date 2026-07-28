@@ -1,0 +1,23 @@
+{
+  "skill_name": "run-wokwi",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "chay wokwi esp32",
+      "expected_output": "Open Wokwi extension, start simulation",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "wokwi khong gui du lieu cho server",
+      "expected_output": "Check server running on port 5000, verify URL",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "json sensor data gom field nao?",
+      "expected_output": "13 fields: id, t, h, p, co2, co, nh3, lat, lon, alt, sats, gw, seq",
+      "files": []
+    }
+  ]
+}

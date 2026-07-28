@@ -1,0 +1,23 @@
+{
+  "skill_name": "project-overview",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "project nay lam gi? co nhieu component nao?",
+      "expected_output": "List all components: Wokwi, Server, Android, DB",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "schema database co nhieu table nao?",
+      "expected_output": "3 tables: devices, telemetry, benchmark",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "AES key la gi?",
+      "expected_output": "key_x_1234567890",
+      "files": []
+    }
+  ]
+}

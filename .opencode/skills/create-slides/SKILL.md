@@ -1,77 +1,129 @@
 ---
 name: create-slides
-description: Use when the user asks to create PowerPoint slides (.pptx) from thesis content, project documentation, or any structured content. Trigger on keywords like "tao slide", "create slides", "powerpoint", "pptx", "presentation", "trinh bay". Handles full workflow: read source content, generate PPTX with python-pptx, save to doandocs/.
+description: Use when the user wants to create PowerPoint slides for thesis defense or presentation. Trigger on "tao slide", "create slides", "powerpoint", "pptx", "presentation", "trinh bay", "bao cao", "slide bao ve". Generates PPTX with python-pptx.
 ---
 
-# Skill: Create PowerPoint Slides
+# Create PowerPoint Slides
 
-Use this skill when the user wants to generate a PowerPoint presentation from existing project content (thesis chapters, documentation, README, etc.).
+## Quick Start
 
-## Workflow
+```cmd
+cd C:\ĐATN\server
+python -c "from pptx import Presentation; print('python-pptx installed')"
+```
 
-1. **Identify source content**: Read the relevant files (`.docx`, `.md`, `.py`, etc.) to extract structure and key points.
-2. **Plan slide structure**: Break content into logical slides (title, overview, per-chapter sections, conclusion).
-3. **Generate PPTX**: Use `python-pptx` library to create slides with proper formatting.
-4. **Save and inform**: Save to `doandocs/` directory and tell the user the file path.
+If not installed:
+```cmd
+pip install python-pptx
+```
 
-## Slide Design Guidelines
-
-- Use **16:9 widescreen** format (13.333 x 7.5 inches)
-- Color scheme: Dark blue (#003366) for headers, white background
-- Title slides: Blue background, white text, centered
-- Content slides: White background, blue header bar at top
-- Tables: Blue header row, alternating gray/white rows
-- Font sizes: Title 28-36pt, body 14-18pt, tables 12pt
-- Add footer with project name on every content slide
-
-## python-pptx Template
+## Create Slides
 
 ```python
 from pptx import Presentation
 from pptx.util import Inches, Pt
-from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 
 prs = Presentation()
 prs.slide_width = Inches(13.333)
 prs.slide_height = Inches(7.5)
 
-# Add blank slide
-slide = prs.slides.add_slide(prs.slide_layouts[6])
+# Add title slide
+slide = prs.slides.add_slide(prs.slide_layouts[0])
+title = slide.shapes.title
+title.text = "TEN DE TAI"
 
-# Add text
-txBox = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(11), Inches(1))
-tf = txBox.text_frame
-p = tf.paragraphs[0]
-p.text = "Hello"
-p.font.size = Pt(24)
-p.font.bold = True
+# Add content slide
+slide = prs.slides.add_slide(prs.slide_layouts[1])
+title = slide.shapes.title
+title.text = "CHUONG 1: GIOI THIEU"
+body = slide.placeholders[1]
+body.text = "1.1 Boi canh\n1.2 Muc tieu\n1.3 Pham vi"
 
-# Add table
-table = slide.shapes.add_table(rows, cols, left, top, width, height).table
-
-prs.save("output.pptx")
+prs.save("doandocs/Slide_DATN_HUCE.pptx")
 ```
 
-## Common Patterns
+## Slide Structure
 
-### Chapter Title Slide
-- Blue background
-- "CHUONG X: TEN CHUONG" in large white bold text
+| Slide | Content |
+|-------|---------|
+| 1 | Title page |
+| 2 | Table of contents |
+| 3-5 | Chapter 1: Introduction |
+| 6-9 | Chapter 2: Literature review |
+| 10-13 | Chapter 3: Design |
+| 14-20 | Chapter 4: Implementation |
+| 21-23 | Chapter 5: Testing |
+| 24 | Conclusion |
+| 25 | Q&A |
 
-### Content Slide with Table
-- Blue header bar at top with slide title
-- Table below with data
-- Footer at bottom
+## Styling Guide
 
-### Key Results Slide
-- Bullet list of achievements
-- Bold key numbers/metrics
+| Element | Style |
+|---------|-------|
+| Background | White |
+| Title Color | Blue (#003366) |
+| Body Color | Black (#000000) |
+| Font | Calibri |
+| Title Size | 36pt |
+| Body Size | 18pt |
+| Slide Size | 13.333 x 7.5 inches |
 
-## Output Location
+## Thesis Structure
 
-Save generated PPTX files to: `doandocs/Slide_DATN_HUCE.pptx` (or as specified by user).
+1. **Chuong 1: Gioi thieu**
+   - 1.1 Boi canh
+   - 1.2 Muc tieu
+   - 1.3 Pham vi
 
-## Dependencies
+2. **Chuong 2: Ngon ngu**
+   - 2.1 ESP32
+   - 2.2 AES-128-CBC
+   - 2.3 Flask
+   - 2.4 SQLite
 
-- `python-pptx` (install via `pip install python-pptx`)
+3. **Chuong 3: Thiet ke**
+   - 3.1 Kien truc
+   - 3.2 Luong du lieu
+   - 3.3 Protocol
+   - 3.4 Database
+
+4. **Chuong 4: Trien khai**
+   - 4.1 Wokwi ESP32
+   - 4.2 Server Flask
+   - 4.3 AES Encrypt
+   - 4.4 Anti-replay
+   - 4.5 Android App
+   - 4.6 Benchmark
+   - 4.7 Test
+
+5. **Chuong 5: Kiem thu**
+   - 5.1 Muc tieu
+   - 5.2 Test case
+   - 5.3 Ket qua
+
+## Common Issues
+
+### python-pptx Not Installed
+```cmd
+pip install python-pptx
+```
+
+### File Not Saved
+- Check `doandocs/` folder exists
+- Verify write permissions
+
+### Font Not Found
+- Use Calibri or Times New Roman
+- Avoid special fonts
+
+## Output
+
+Save to: `doandocs/Slide_DATN_HUCE.pptx`
+
+## Related Files
+
+| File | Purpose |
+|------|---------|
+| `doandocs/Slide_DATN_HUCE.pptx` | Generated slides |
+| `doandocs/Chương 3.docx` | Thesis chapter |

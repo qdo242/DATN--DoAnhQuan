@@ -1,0 +1,23 @@
+{
+  "skill_name": "db-query",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "xem du lieu database",
+      "expected_output": "sqlite3 iot_security.db, SELECT * FROM devices",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "benchmark co bao nhieu record?",
+      "expected_output": "19 records: 15 OK, 4 FAIL",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "trung binh total_ms la bao nhieu?",
+      "expected_output": "~10.455ms",
+      "files": []
+    }
+  ]
+}
